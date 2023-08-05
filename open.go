@@ -51,7 +51,10 @@ func (w *wrapper) Read(p []byte) (n int, err error) {
 	return w.origFile.Read(p)
 }
 
-var freeUp = func(w *wrapper) {
+func (w *wrapper) freeUp() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
 	// do magic so logfile can be rotated
 	fmt.Println("got it got it")
 }
@@ -64,7 +67,7 @@ func (w *wrapper) signalListener() {
 			close(w.receivedSignal)
 			return
 		case <-w.receivedSignal:
-			freeUp(w)
+			w.freeUp()
 		}
 	}
 }
