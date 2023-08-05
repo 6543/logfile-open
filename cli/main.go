@@ -9,7 +9,15 @@ import (
 )
 
 func main() {
-	file, err := logfile.OpenFile("/tmp/a/alog", os.O_CREATE, 0o666)
+	aFile := "/tmp/a/alog"
+
+	f, _ := os.OpenFile(aFile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o660)
+	aloc := []byte("helloooo")
+	_, err := f.Write(aloc)
+	fmt.Println(err)
+	f.Close()
+
+	file, err := logfile.OpenFile(aFile, 0o660)
 	if err != nil {
 		fmt.Printf("ERROR: %v", err)
 		os.Exit(1)

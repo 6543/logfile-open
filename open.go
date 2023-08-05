@@ -7,11 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"io/fs"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type wrapper struct {
@@ -19,6 +20,7 @@ type wrapper struct {
 	ctxCloser      func()
 	receivedSignal chan os.Signal
 	fileName       string
+	perm           fs.FileMode
 	origFile       *os.File
 	lock           sync.RWMutex
 	err            error
@@ -55,8 +57,20 @@ func (w *wrapper) freeUp() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	// do magic so logfile can be rotated
-	log.Println("got it got it")
+	w.err = w.origFile.Close()
+	if w.err != nil {
+		w.ctxCloser()
+		return
+	}
+
+	// TODO: do we need this or is it enough to close and open it?
+	time.Sleep(time.Millisecond)
+
+	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.perm)
+	if w.err != nil {
+		w.ctxCloser()
+		return
+	}
 }
 
 func (w *wrapper) signalListener() {
@@ -72,8 +86,8 @@ func (w *wrapper) signalListener() {
 	}
 }
 
-func OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, error) {
-	file, err := os.OpenFile(name, flag, perm)
+func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
+	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +101,7 @@ func OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, erro
 		ctxCloser:      ctxCancel,
 		receivedSignal: receivedSignal,
 		fileName:       name,
+		filePerm:       perm,
 		origFile:       file,
 	}
 
