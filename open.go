@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -65,6 +66,7 @@ func (w *wrapper) freeUp() {
 
 	// TODO: do we need this or is it enough to close and open it?
 	time.Sleep(time.Millisecond)
+	log.Println("got it!")
 
 	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.perm)
 	if w.err != nil {
