@@ -21,7 +21,7 @@ type wrapper struct {
 	ctxCloser      func()
 	receivedSignal chan os.Signal
 	fileName       string
-	perm           fs.FileMode
+	filePerm       fs.FileMode
 	origFile       *os.File
 	lock           sync.RWMutex
 	err            error
@@ -68,7 +68,7 @@ func (w *wrapper) freeUp() {
 	time.Sleep(time.Millisecond)
 	log.Println("got it!")
 
-	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.perm)
+	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.filePerm)
 	if w.err != nil {
 		w.ctxCloser()
 		return
