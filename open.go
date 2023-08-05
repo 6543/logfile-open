@@ -4,20 +4,27 @@
 package logfile
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type wrapper struct {
-	fileName string
-	origFile *os.File
-	lock     sync.RWMutex
-	err      error
+	ctx            context.Context
+	ctxCloser      func()
+	receivedSignal chan os.Signal
+	fileName       string
+	origFile       *os.File
+	lock           sync.RWMutex
+	err            error
 }
 
 func (w *wrapper) Close() error {
+	w.ctxCloser()
 	if w.err != nil {
 		return w.err
 	}
@@ -44,13 +51,42 @@ func (w *wrapper) Read(p []byte) (n int, err error) {
 	return w.origFile.Read(p)
 }
 
+var freeUp = func(w *wrapper) {
+	// do magic so logfile can be rotated
+	fmt.Println("got it got it")
+}
+
+func (w *wrapper) signalListener() {
+	for {
+		select {
+		case <-w.ctx.Done():
+			signal.Stop(w.receivedSignal)
+			return
+		case <-w.receivedSignal:
+			freeUp(w)
+		}
+	}
+}
+
 func OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(name, flag, perm)
 	if err != nil {
 		return nil, err
 	}
-	return &wrapper{
-		fileName: name,
-		origFile: file,
-	}, nil
+
+	receivedSignal := make(chan os.Signal, 1)
+	signal.Notify(receivedSignal, syscall.SIGUSR1)
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
+	rwc := &wrapper{
+		ctx:            ctx,
+		ctxCloser:      ctxCancel,
+		receivedSignal: receivedSignal,
+		fileName:       name,
+		origFile:       file,
+	}
+
+	go rwc.signalListener()
+
+	return rwc, nil
 }
