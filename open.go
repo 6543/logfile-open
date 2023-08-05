@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type wrapper struct {
@@ -18,6 +20,7 @@ type wrapper struct {
 	ctxCloser      func()
 	receivedSignal chan os.Signal
 	fileName       string
+	perm           fs.FileMode
 	origFile       *os.File
 	lock           sync.RWMutex
 	err            error
@@ -28,7 +31,6 @@ func (w *wrapper) Close() error {
 	if w.err != nil {
 		return w.err
 	}
-	w.lock.Lock() // lock indefinite
 	w.err = fmt.Errorf("writer got closed")
 	return w.origFile.Close()
 }
@@ -51,9 +53,24 @@ func (w *wrapper) Read(p []byte) (n int, err error) {
 	return w.origFile.Read(p)
 }
 
-var freeUp = func(w *wrapper) {
-	// do magic so logfile can be rotated
-	fmt.Println("got it got it")
+func (w *wrapper) freeUp() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.err = w.origFile.Close()
+	if w.err != nil {
+		w.ctxCloser()
+		return
+	}
+
+	// TODO: do we need this or is it enough to close and open it?
+	time.Sleep(time.Millisecond)
+
+	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.perm)
+	if w.err != nil {
+		w.ctxCloser()
+		return
+	}
 }
 
 func (w *wrapper) signalListener() {
@@ -64,13 +81,13 @@ func (w *wrapper) signalListener() {
 			close(w.receivedSignal)
 			return
 		case <-w.receivedSignal:
-			freeUp(w)
+			w.freeUp()
 		}
 	}
 }
 
-func OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, error) {
-	file, err := os.OpenFile(name, flag, perm)
+func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
+	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +101,7 @@ func OpenFile(name string, flag int, perm os.FileMode) (io.ReadWriteCloser, erro
 		ctxCloser:      ctxCancel,
 		receivedSignal: receivedSignal,
 		fileName:       name,
+		filePerm:       perm,
 		origFile:       file,
 	}
 
