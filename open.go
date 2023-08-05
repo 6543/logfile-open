@@ -61,6 +61,7 @@ func (w *wrapper) signalListener() {
 		select {
 		case <-w.ctx.Done():
 			signal.Stop(w.receivedSignal)
+			close(w.receivedSignal)
 			return
 		case <-w.receivedSignal:
 			freeUp(w)
