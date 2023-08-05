@@ -29,7 +29,6 @@ func (w *wrapper) Close() error {
 	if w.err != nil {
 		return w.err
 	}
-	w.lock.Lock() // lock indefinite
 	w.err = fmt.Errorf("writer got closed")
 	return w.origFile.Close()
 }
