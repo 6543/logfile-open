@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -56,7 +57,7 @@ func (w *wrapper) freeUp() {
 	defer w.lock.Unlock()
 
 	// do magic so logfile can be rotated
-	fmt.Println("got it got it")
+	log.Println("got it got it")
 }
 
 func (w *wrapper) signalListener() {
