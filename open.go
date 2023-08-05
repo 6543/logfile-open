@@ -20,7 +20,6 @@ type wrapper struct {
 	ctx            context.Context
 	ctxCloser      func()
 	receivedSignal chan os.Signal
-	fileName       string
 	filePerm       fs.FileMode
 	origFile       *os.File
 	lock           sync.RWMutex
@@ -68,7 +67,7 @@ func (w *wrapper) freeUp() {
 	time.Sleep(time.Millisecond)
 	log.Println("got it!")
 
-	w.origFile, w.err = os.OpenFile(w.fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, w.filePerm)
+	w.origFile, w.err = os.OpenFile(w.origFile.Name(), os.O_CREATE|os.O_RDWR|os.O_APPEND, w.filePerm)
 	if w.err != nil {
 		w.ctxCloser()
 		return
@@ -102,7 +101,6 @@ func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 		ctx:            ctx,
 		ctxCloser:      ctxCancel,
 		receivedSignal: receivedSignal,
-		fileName:       name,
 		filePerm:       perm,
 		origFile:       file,
 	}
