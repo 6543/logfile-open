@@ -86,6 +86,10 @@ func (w *wrapper) signalListener() {
 }
 
 func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
+	return OpenFileWithContext(context.Background(), name, perm)
+}
+
+func OpenFileWithContext(ctx context.Context, name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
 	if err != nil {
 		return nil, err
@@ -93,10 +97,10 @@ func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 
 	receivedSignal := make(chan os.Signal, 1)
 	signal.Notify(receivedSignal, syscall.SIGUSR1)
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	newCtx, ctxCancel := context.WithCancel(ctx)
 
 	rwc := &wrapper{
-		ctx:            ctx,
+		ctx:            newCtx,
 		ctxCloser:      ctxCancel,
 		receivedSignal: receivedSignal,
 		filePerm:       perm,
