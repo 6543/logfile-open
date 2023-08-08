@@ -28,11 +28,17 @@ type wrapper struct {
 
 func (w *wrapper) Close() error {
 	w.ctxCloser()
-	if w.err != nil {
-		return w.err
-	}
 	w.err = fmt.Errorf("writer got closed")
-	return w.origFile.Close()
+	return nil
+}
+
+func (w *wrapper) close() {
+	signal.Stop(w.receivedSignal)
+	close(w.receivedSignal)
+	w.err = w.origFile.Close()
+	if w.err == nil {
+		w.err = w.ctx.Err()
+	}
 }
 
 func (w *wrapper) Write(p []byte) (n int, err error) {
@@ -78,8 +84,7 @@ func (w *wrapper) signalListener() {
 	for {
 		select {
 		case <-w.ctx.Done():
-			signal.Stop(w.receivedSignal)
-			close(w.receivedSignal)
+			w.close()
 			return
 		case <-w.receivedSignal:
 			w.freeUp()
@@ -88,6 +93,10 @@ func (w *wrapper) signalListener() {
 }
 
 func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
+	return OpenFileWithContext(context.Background(), name, perm)
+}
+
+func OpenFileWithContext(ctx context.Context, name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
 	if err != nil {
 		return nil, err
@@ -95,10 +104,10 @@ func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 
 	receivedSignal := make(chan os.Signal, 1)
 	signal.Notify(receivedSignal, syscall.SIGUSR1)
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	newCtx, ctxCancel := context.WithCancel(ctx)
 
 	rwc := &wrapper{
-		ctx:            ctx,
+		ctx:            newCtx,
 		ctxCloser:      ctxCancel,
 		receivedSignal: receivedSignal,
 		filePerm:       perm,
