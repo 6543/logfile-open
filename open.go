@@ -27,11 +27,17 @@ type wrapper struct {
 
 func (w *wrapper) Close() error {
 	w.ctxCloser()
-	if w.err != nil {
-		return w.err
-	}
 	w.err = fmt.Errorf("writer got closed")
-	return w.origFile.Close()
+	return nil
+}
+
+func (w *wrapper) close() {
+	signal.Stop(w.receivedSignal)
+	close(w.receivedSignal)
+	w.err = w.origFile.Close()
+	if w.err == nil {
+		w.err = w.ctx.Err()
+	}
 }
 
 func (w *wrapper) Write(p []byte) (n int, err error) {
@@ -76,8 +82,7 @@ func (w *wrapper) signalListener() {
 	for {
 		select {
 		case <-w.ctx.Done():
-			signal.Stop(w.receivedSignal)
-			close(w.receivedSignal)
+			w.close()
 			return
 		case <-w.receivedSignal:
 			w.freeUp()
