@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -11,8 +12,10 @@ import (
 func main() {
 	aFile := "/tmp/a/alog"
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	fmt.Println("open file")
-	file, err := logfile.OpenFile(aFile, 0o660)
+	file, err := logfile.OpenFileWithContext(ctx, aFile, 0o660)
 	if err != nil {
 		fmt.Printf("ERROR: %v", err)
 		os.Exit(1)
@@ -35,11 +38,12 @@ func main() {
 		os.Exit(2)
 	}
 
-	err = file.Close()
-	if err != nil {
-		fmt.Printf("ERROR: %v", err)
-		os.Exit(3)
-	}
+	ctxCancel()
+	// err = file.Close()
+	// if err != nil {
+	// 	fmt.Printf("ERROR: %v", err)
+	// 	os.Exit(3)
+	// }
 
 	time.Sleep(time.Second * 20)
 }
