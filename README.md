@@ -11,4 +11,5 @@ readWriteCloser, err := logfile.OpenFile("/tmp/some_file.log", 0o660)
 
 ## Windows
 
-if you compile this on windows it just open the file as there is no such concept as signals
+if you compile this on windows it just open the file, as there is no such concept as signals.
+if you use the context aware open, the file will still be closed on context close.

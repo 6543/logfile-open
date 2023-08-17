@@ -18,9 +18,9 @@ func OpenFile(name string, perm os.FileMode) (io.ReadWriteCloser, error) {
 }
 
 type wrapper struct {
-	ctx            context.Context
-	ctxCloser      func()
-	origFile       io.ReadWriteCloser
+	ctx       context.Context
+	ctxCloser func()
+	origFile  io.ReadWriteCloser
 }
 
 func (w *wrapper) Close() error {
@@ -42,8 +42,10 @@ func (w *wrapper) contextListener() {
 	for {
 		select {
 		case <-w.ctx.Done():
-			origFile.Close()
+			w.origFile.Close()
+			w.ctxCloser = func() {}
 			return
+		}
 	}
 }
 
@@ -56,29 +58,12 @@ func OpenFileWithContext(ctx context.Context, name string, perm os.FileMode) (io
 	newCtx, ctxCancel := context.WithCancel(ctx)
 
 	rwc := &wrapper{
-		ctx:            newCtx,
-		ctxCloser:      ctxCancel,
-		origFile:       file,
+		ctx:       newCtx,
+		ctxCloser: ctxCancel,
+		origFile:  file,
 	}
 
 	go rwc.contextListener()
 
 	return rwc, nil
-}
-
-
-func OpenFileWithContext(ctx context.Context, name string, perm os.FileMode) (io.ReadWriteCloser, error) {
-	file, err := OpenFile(name, perm)
-
-	go func() {
-		file := file
-		for {
-			select {
-			case <-w.ctx.Done():
-				w.close()
-				return
-		}
-	}()
-
-	return file, err
 }
