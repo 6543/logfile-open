@@ -1,6 +1,8 @@
 // Copyright 2023 @6543. All rights reserved.
 // SPDX-License-Identifier: MIT
 
+//go:build !windows
+
 package logfile
 
 import (
